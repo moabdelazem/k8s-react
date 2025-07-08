@@ -23,6 +23,12 @@ pipeline {
         }
         
         stage('Install Dependencies') {
+            agent {
+                docker {
+                    image 'node:22-alpine'
+                    args '-v ${WORKSPACE}:/app -w /app'
+                }
+            }
             steps {
                 echo '📦 Installing npm dependencies...'
                 
@@ -38,6 +44,7 @@ pipeline {
                     npm ci
                     
                     echo "Dependencies installed successfully!"
+                    ls -la node_modules/ | head -10
                 '''
                 
                 echo '✅ Dependencies installation completed!'
@@ -45,11 +52,20 @@ pipeline {
         }
         
         stage('Lint Code') {
+            agent {
+                docker {
+                    image 'node:22-alpine'
+                    args '-v ${WORKSPACE}:/app -w /app'
+                }
+            }
             steps {
                 echo '🔍 Running code linting...'
                 
                 // Run ESLint to check code quality
                 sh '''
+                    echo "Checking if node_modules exists..."
+                    ls -la node_modules/ | head -5
+                    
                     echo "Running ESLint..."
                     npm run lint
                     
@@ -61,11 +77,20 @@ pipeline {
         }
         
         stage('Build Application') {
+            agent {
+                docker {
+                    image 'node:22-alpine'
+                    args '-v ${WORKSPACE}:/app -w /app'
+                }
+            }
             steps {
                 echo '🚀 Building React application...'
                 
                 // Build the React app using Vite
                 sh '''
+                    echo "Checking if node_modules exists..."
+                    ls -la node_modules/ | head -5
+                    
                     echo "Building application..."
                     npm run build
                     
@@ -74,6 +99,9 @@ pipeline {
                     
                     echo "Build artifacts:"
                     find dist/ -type f -name "*.js" -o -name "*.css" -o -name "*.html"
+                    
+                    echo "Build size:"
+                    du -sh dist/
                 '''
                 
                 echo '✅ Application build completed successfully!'
@@ -84,7 +112,7 @@ pipeline {
             steps {
                 echo '📁 Archiving build artifacts...'
                 
-                // Archive the build output for later use
+                // Archive the build output for later use (runs on Jenkins agent, not in Docker)
                 archiveArtifacts artifacts: 'dist/**/*', fingerprint: true
                 
                 echo '✅ Build artifacts archived successfully!'
