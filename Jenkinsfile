@@ -1,97 +1,129 @@
 pipeline {
-    agent none
+    agent any
     
     environment {
+        // Set environment variables for Node.js
         CI = 'true'
-        BROWSER = 'none'
-        DOCKER_REGISTRY = 'docker.io'
-        IMAGE_NAME = 'moabdelazem/k8s-react'
+        NODE_ENV = 'production'
     }
     
     stages {
-        stage('Build') {
-            agent {
-                docker {
-                    image 'node:22-alpine'
-                    args '-u root:root'
-                }
-            }
-            environment {
-                HOME = '/tmp'
-            }
+        stage('Checkout') {
             steps {
-                unstash 'source-code'
+                echo '🔄 Starting checkout...'
                 
+                // Clean workspace to start fresh
+                cleanWs()
+                
+                // Checkout code from repository
+                checkout scm
+                
+                echo '✅ Checkout completed successfully!'
+            }
+        }
+        
+        stage('Install Dependencies') {
+            steps {
+                echo '📦 Installing npm dependencies...'
+                
+                // Install dependencies using npm ci for faster, reliable builds
                 sh '''
-                    echo "Installing dependencies..."
-                    npm ci --cache /tmp/.npm --prefer-offline
+                    echo "Node.js version:"
+                    node --version
                     
+                    echo "npm version:"
+                    npm --version
+                    
+                    echo "Installing dependencies..."
+                    npm ci
+                    
+                    echo "Dependencies installed successfully!"
+                '''
+                
+                echo '✅ Dependencies installation completed!'
+            }
+        }
+        
+        stage('Lint Code') {
+            steps {
+                echo '🔍 Running code linting...'
+                
+                // Run ESLint to check code quality
+                sh '''
+                    echo "Running ESLint..."
+                    npm run lint
+                    
+                    echo "Linting completed!"
+                '''
+                
+                echo '✅ Code linting completed!'
+            }
+        }
+        
+        stage('Build Application') {
+            steps {
+                echo '🚀 Building React application...'
+                
+                // Build the React app using Vite
+                sh '''
                     echo "Building application..."
                     npm run build
+                    
+                    echo "Build completed! Checking output..."
+                    ls -la dist/
+                    
+                    echo "Build artifacts:"
+                    find dist/ -type f -name "*.js" -o -name "*.css" -o -name "*.html"
                 '''
                 
-                stash includes: 'build/**/*', name: 'build-artifacts'
+                echo '✅ Application build completed successfully!'
             }
         }
         
-        stage('Docker Build') {
-            agent {
-                docker {
-                    image 'docker:latest'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                }
-            }
+        stage('Archive Build Artifacts') {
             steps {
-                unstash 'source-code'
-                unstash 'build-artifacts'
+                echo '📁 Archiving build artifacts...'
                 
-                script {
-                    def imageTag = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
-                    def fullImageName = "${DOCKER_REGISTRY}/${IMAGE_NAME}:${imageTag}"
-                    
-                    sh """
-                        docker build -t ${fullImageName} .
-                        docker tag ${fullImageName} ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest
-                    """
-                    
-                    env.DOCKER_IMAGE = fullImageName
-                }
-            }
-        }
-        
-        stage('Security Scan') {
-            agent {
-                docker {
-                    image 'aquasec/trivy:latest'
-                    args '--entrypoint=""'
-                }
-            }
-            steps {
-                sh '''
-                    trivy image --format json --output security-report.json ${DOCKER_IMAGE}
-                    trivy image --severity HIGH,CRITICAL ${DOCKER_IMAGE}
-                '''
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'security-report.json', allowEmptyArchive: true
-                }
+                // Archive the build output for later use
+                archiveArtifacts artifacts: 'dist/**/*', fingerprint: true
+                
+                echo '✅ Build artifacts archived successfully!'
             }
         }
     }
     
     post {
         success {
-            echo 'Pipeline succeeded!'
+            echo '🎉 Pipeline completed successfully!'
+            echo '✅ Your React application has been built and is ready for deployment!'
+            
+            // Display build summary
+            sh '''
+                echo "=== BUILD SUMMARY ==="
+                echo "Build Number: ${BUILD_NUMBER}"
+                echo "Build Status: SUCCESS"
+                echo "Build Output: dist/ directory"
+                echo "Build Size:"
+                du -sh dist/
+                echo "===================="
+            '''
         }
         
         failure {
-            echo 'Pipeline failed!'
+            echo '❌ Pipeline failed!'
+            echo '💡 Check the logs above to identify the issue.'
         }
         
         always {
-            // Clean up can be done here if needed
-            echo 'Pipeline completed.'
+            echo '🧹 Cleaning up temporary files...'
+            
+            // Clean up node_modules to save space (optional)
+            sh '''
+                echo "Workspace cleanup..."
+                # Uncomment the next line if you want to clean node_modules
+                # rm -rf node_modules/
+                echo "Cleanup completed!"
+            '''
         }
     }
 }
