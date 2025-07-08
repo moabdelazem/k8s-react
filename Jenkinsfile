@@ -41,7 +41,7 @@ pipeline {
                     npm --version
                     
                     echo "Installing dependencies..."
-                    npm ci
+                    npm ci --cache-dir /tmp/
                     
                     echo "Dependencies installed successfully!"
                     ls -la node_modules/ | head -10
