@@ -26,7 +26,7 @@ pipeline {
             agent {
                 docker {
                     image 'node:22-alpine'
-                    args '-v ${WORKSPACE}:/app -w /app'
+                    args '-v ${WORKSPACE}:/app -w /app -u root'
                 }
             }
             steps {
@@ -40,8 +40,11 @@ pipeline {
                     echo "npm version:"
                     npm --version
                     
+                    echo "Setting up npm cache..."
+                    npm config set cache /tmp/.npm
+                    
                     echo "Installing dependencies..."
-                    npm ci --cache-dir /tmp/
+                    npm ci
                     
                     echo "Dependencies installed successfully!"
                     ls -la node_modules/ | head -10
@@ -55,7 +58,7 @@ pipeline {
             agent {
                 docker {
                     image 'node:22-alpine'
-                    args '-v ${WORKSPACE}:/app -w /app'
+                    args '-v ${WORKSPACE}:/app -w /app -u root'
                 }
             }
             steps {
@@ -80,7 +83,7 @@ pipeline {
             agent {
                 docker {
                     image 'node:22-alpine'
-                    args '-v ${WORKSPACE}:/app -w /app'
+                    args '-v ${WORKSPACE}:/app -w /app -u root'
                 }
             }
             steps {
