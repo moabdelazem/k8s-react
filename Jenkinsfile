@@ -9,18 +9,6 @@ pipeline {
     }
     
     stages {
-        stage('Checkout') {
-            agent {
-                docker {
-                    image 'alpine/git:latest'
-                }
-            }
-            steps {
-                checkout scm
-                stash includes: '**/*', name: 'source-code'
-            }
-        }
-        
         stage('Build') {
             agent {
                 docker {
